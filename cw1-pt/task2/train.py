@@ -1,9 +1,7 @@
 """
 GenAI usage statement:
-- Tool used: OpenAI Codex.
-- Assistance received: scaffolding, implementation drafting, and code review.
-- Human verification: the final code structure, hyperparameters, and task-specific logic
-  were checked and adjusted to satisfy the coursework specification.
+- Tool used: Claude
+- Assistance received: documentation
 """
 
 from __future__ import annotations

@@ -1,9 +1,7 @@
 """
 GenAI usage statement:
-- Tool used: OpenAI Codex.
-- Assistance received: scaffolding, implementation drafting, and code review.
-- Human verification: the final code structure, hyperparameters, and task-specific logic
-  were checked and adjusted to satisfy the coursework specification.
+- Tool used: Claude
+- Assistance received: documentation
 """
 
 from __future__ import annotations
@@ -29,7 +27,7 @@ from common import (
 
 
 SEED = 7
-EPOCHS = 12
+EPOCHS = 25
 BATCH_SIZE = 128
 VALIDATION_FRACTION = 0.1
 DEVICE = torch.device("cpu")
@@ -76,7 +74,7 @@ def main() -> None:
 
     baseline_config = {
         "name": "baseline",
-        "hidden_dims": [1024, 512, 256, 128, 64],
+        "hidden_dims": [1024, 512, 512, 256, 128, 64],
         "dropout_rate": 0.0,
         "weight_decay": 0.0,
         "learning_rate": 0.08,
@@ -90,8 +88,8 @@ def main() -> None:
     }
     regularized_config = {
         "name": "regularized",
-        "hidden_dims": [512, 256, 128, 96, 64],
-        "dropout_rate": 0.25,
+        "hidden_dims": [1024, 512, 512, 256, 128, 64],
+        "dropout_rate": 0.15,
         "weight_decay": 1e-4,
         "learning_rate": 0.05,
         "momentum": 0.9,

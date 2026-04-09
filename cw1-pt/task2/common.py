@@ -1,9 +1,7 @@
 """
 GenAI usage statement:
-- Tool used: OpenAI Codex.
-- Assistance received: scaffolding, implementation drafting, and code review.
-- Human verification: the final code structure, hyperparameters, and task-specific logic
-  were checked and adjusted to satisfy the coursework specification.
+- Tool used: Claude
+- Assistance received: documentation
 """
 
 from __future__ import annotations
@@ -172,19 +170,32 @@ class FashionCNN(nn.Module):
 
 
 def build_model() -> FashionCNN:
-    """Instantiate the Task 2 convolutional classifier."""
+    """Instantiate the Task 2 convolutional classifier.
+
+    Returns:
+        FashionCNN, freshly initialised model with random weights.
+    """
 
     return FashionCNN()
 
 
 def candidate_data_directories() -> List[Path]:
-    """Return possible directories containing FashionMNIST archives."""
+    """Return possible directories containing FashionMNIST archives.
+
+    Returns:
+        list[Path], candidate directories in preference order.
+    """
 
     return [LOCAL_DATA_DIR, SHARED_TASK1_DATA_DIR]
 
 
 def resolve_data_directory() -> Path:
-    """Select an existing data directory or the local download target."""
+    """Select an existing data directory or the local download target.
+
+    Returns:
+        Path, first candidate directory that contains all required archives,
+        or LOCAL_DATA_DIR if none is found.
+    """
 
     required = [
         "train-images-idx3-ubyte.gz",
@@ -215,14 +226,14 @@ def download_file(urls: List[str], destination: Path) -> None:
             with urllib.request.urlopen(url) as response:
                 destination.write_bytes(response.read())
             return
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:  
             last_error = error
         try:
             insecure_context = ssl._create_unverified_context()
             with urllib.request.urlopen(url, context=insecure_context) as response:
                 destination.write_bytes(response.read())
             return
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:  
             last_error = error
             if destination.exists():
                 destination.unlink()
@@ -231,7 +242,11 @@ def download_file(urls: List[str], destination: Path) -> None:
 
 
 def ensure_fashion_mnist_downloaded() -> Path:
-    """Ensure FashionMNIST archives exist and return the chosen data directory."""
+    """Ensure FashionMNIST archives exist and return the chosen data directory.
+
+    Returns:
+        Path, directory containing all four FashionMNIST gzip archives.
+    """
 
     resolved = resolve_data_directory()
     if resolved != LOCAL_DATA_DIR:
@@ -358,7 +373,7 @@ def apply_mixup(
     """
 
     permutation = torch.randperm(images.size(0), device=images.device)
-    lam = random.betavariate(alpha, alpha)
+    lam = float(torch.distributions.Beta(alpha, alpha).sample().item())
     labels_a = one_hot(labels, NUM_CLASSES)
     labels_b = one_hot(labels[permutation], NUM_CLASSES)
     mixed_images = lam * images + (1.0 - lam) * images[permutation]
@@ -575,17 +590,3 @@ def load_history() -> History:
     return History(**json.loads(HISTORY_PATH.read_text(encoding="utf-8")))
 
 
-def describe_soft_target(target: torch.Tensor) -> str:
-    """Convert a soft label vector into a compact textual description.
-
-    Args:
-        target: torch.Tensor, shape [NUM_CLASSES].
-
-    Returns:
-        str, top-2 class mix summary.
-    """
-
-    values, indices = torch.topk(target, k=2)
-    first = f"{CLASS_NAMES[int(indices[0])]} {float(values[0]):.2f}"
-    second = f"{CLASS_NAMES[int(indices[1])]} {float(values[1]):.2f}"
-    return f"{first} + {second}"

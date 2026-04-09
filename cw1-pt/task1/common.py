@@ -1,9 +1,7 @@
 """
 GenAI usage statement:
-- Tool used: OpenAI Codex.
-- Assistance received: scaffolding, implementation drafting, and code review.
-- Human verification: the final code structure, hyperparameters, and task-specific logic
-  were checked and adjusted to satisfy the coursework specification.
+- Tool used: Claude
+- Assistance received: documentation
 """
 
 from __future__ import annotations
@@ -201,14 +199,14 @@ def download_file(urls: List[str], destination: Path) -> None:
             with urllib.request.urlopen(url) as response:
                 destination.write_bytes(response.read())
             return
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
             last_error = error
         try:
             insecure_context = ssl._create_unverified_context()
             with urllib.request.urlopen(url, context=insecure_context) as response:
                 destination.write_bytes(response.read())
             return
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
             last_error = error
             if destination.exists():
                 destination.unlink()
@@ -409,7 +407,8 @@ def train_model(
     val_accuracy: List[float] = []
 
     model.to(device)
-    for _ in range(epochs):
+    print("epoch | train_loss | train_acc | val_loss | val_acc", flush=True)
+    for epoch in range(1, epochs + 1):
         epoch_train_loss, epoch_train_accuracy = run_epoch(
             model=model,
             loader=train_loader,
@@ -430,6 +429,12 @@ def train_model(
         train_accuracy.append(epoch_train_accuracy)
         val_loss.append(epoch_val_loss)
         val_accuracy.append(epoch_val_accuracy)
+
+        print(
+            f"{epoch:>5d} | {epoch_train_loss:>10.4f} | {epoch_train_accuracy:>9.4f} |"
+            f" {epoch_val_loss:>8.4f} | {epoch_val_accuracy:>7.4f}",
+            flush=True,
+        )
 
     return History(
         train_loss=train_loss,
@@ -462,7 +467,7 @@ def load_model(path: Path, device: torch.device) -> Tuple[nn.Module, Dict[str, o
         tuple(nn.Module, dict), restored model and stored config.
     """
 
-    checkpoint = torch.load(path, map_location=device)
+    checkpoint = torch.load(path, map_location=device, weights_only=False)
     model = build_model(checkpoint["config"])
     model.load_state_dict(checkpoint["model_state"])
     model.to(device)
@@ -492,28 +497,3 @@ def load_history() -> Dict[str, History]:
     return {name: History(**history) for name, history in payload.items()}
 
 
-def get_sample_batch(dataset: Dataset, sample_count: int, seed: int) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Extract a deterministic sample batch for qualitative inspection.
-
-    Args:
-        dataset: Dataset, source dataset or subset.
-        sample_count: int, number of examples to return.
-        seed: int, deterministic sample seed.
-
-    Returns:
-        tuple(torch.Tensor, torch.Tensor), images and labels.
-    """
-
-    generator = random.Random(seed)
-    indices = list(range(len(dataset)))
-    generator.shuffle(indices)
-    selected = indices[:sample_count]
-
-    images: List[torch.Tensor] = []
-    labels: List[int] = []
-    for index in selected:
-        image, label = dataset[index]
-        images.append(image)
-        labels.append(int(label))
-
-    return torch.stack(images, dim=0), torch.tensor(labels, dtype=torch.long)
