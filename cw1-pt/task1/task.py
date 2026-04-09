@@ -268,6 +268,8 @@ def technical_analysis(
     regularized_val_acc: float,
     baseline_test_acc: float,
     regularized_test_acc: float,
+    reg_best_val_acc: float,
+    reg_best_epoch: int,
 ) -> str:
     """Return the coursework analysis text.
 
@@ -278,6 +280,8 @@ def technical_analysis(
         regularized_val_acc: float, final regularized validation accuracy.
         baseline_test_acc: float, baseline test accuracy.
         regularized_test_acc: float, regularized test accuracy.
+        reg_best_val_acc: float, best validation accuracy seen during regularized training.
+        reg_best_epoch: int, epoch at which regularized model achieved best validation accuracy.
 
     Returns:
         str, printable technical discussion.
@@ -285,68 +289,51 @@ def technical_analysis(
 
     baseline_gap = baseline_train_acc - baseline_val_acc
     regularized_gap = regularized_train_acc - regularized_val_acc
-
-    if regularized_val_acc >= baseline_val_acc:
-        gap_summary = (
-            f"The regularized model achieved equal or better validation accuracy "
-            f"({regularized_val_acc:.4f} vs {baseline_val_acc:.4f}) despite lower training "
-            f"accuracy, confirming that constraining the parameter space reduced variance "
-            f"enough to improve generalization."
-        )
-    else:
-        gap_summary = (
-            f"The regularized model's validation accuracy ({regularized_val_acc:.4f}) "
-            f"remained slightly below the baseline ({baseline_val_acc:.4f}), but critically "
-            f"its train-validation gap ({regularized_gap:.4f}) is smaller than the baseline's "
-            f"({baseline_gap:.4f}), confirming that variance was reduced — the regularized "
-            f"model's predictions are more consistent across the training and held-out sets."
-        )
+    gap_pct = (baseline_gap - regularized_gap) / baseline_gap * 100
 
     return f"""
 Task 1 technical analysis
 
-Both models share the identical six-layer architecture (1024, 512, 512, 256, 128, 64 hidden
-units with ReLU activations), so the only experimental variable is the regularization applied
-to the second model. This controlled design isolates what regularization alone does to the
-bias-variance trade-off.
+Both models use the same six-layer architecture (hidden widths 1024, 512, 512, 256, 128, 64
+with ReLU activations), so the only experimental differences are the regularization applied to
+the second model and the learning rate, which I had to lower from 0.08 to 0.05 for the
+regularized model because dropout destabilized training at the higher rate. This means the two models differ in their optimization dynamics as well, which matters for the
+implicit regularization discussion below.
 
-The baseline sits at the high-variance end of the bias-variance curve. With no regularization,
-every parameter update is free to exploit any pattern in the training split, including noise
-that does not generalize. The result is a widening train-validation gap across training: by
-epoch 25 training accuracy reached {baseline_train_acc:.4f} while validation settled at
-{baseline_val_acc:.4f}, a gap of {baseline_gap:.4f}. The validation curve continues to improve
-in the early epochs but diverges increasingly from the training curve as training progresses,
-which is the empirical signature of overfitting — the model has low bias (fits training data
-well) but high variance (that fit does not fully transfer). On the held-out test set the
-baseline achieved {baseline_test_acc:.4f}, confirming the same generalization ceiling.
+The baseline overfits clearly. Training accuracy climbs across all 25 epochs, reaching
+{baseline_train_acc:.4f}. Validation accuracy keeps up through the first 8 epochs but from
+epoch 9 onward training accuracy is consistently above validation and the gap grows steadily
+to {baseline_gap:.4f} by epoch 25. Looking at the plot, the validation curve flattens and
+oscillates around 0.88-0.89 while training continues upward - that persistent divergence is
+the generalization gap. Test accuracy of {baseline_test_acc:.4f} lines up with the validation
+result, which rules out the gap being an artefact of how the validation split landed.
 
-The regularized model adds two explicit constraints that shift it along the bias-variance
-curve toward lower variance at the cost of slightly higher bias. First, dropout at rate 0.15
-randomly zeroes 15% of hidden activations each forward pass. This prevents neurons from
-co-adapting — no single neuron can be relied upon — forcing the network to learn distributed,
-redundant representations that generalize better. Second, L2 weight decay (lambda=1e-4) adds
-a penalty proportional to the squared parameter norms to the loss. This shrinks weights toward
-zero, reducing the effective capacity of the model and discouraging solutions that depend on
-large, brittle weight values. Together, these push the model toward lower variance on the
-bias-variance curve: training accuracy ends at {regularized_train_acc:.4f} (slightly lower
-than the baseline's {baseline_train_acc:.4f}, reflecting the added bias), but the
-train-validation gap narrows to {regularized_gap:.4f} compared to the baseline's
-{baseline_gap:.4f}. The test accuracy of {regularized_test_acc:.4f} is consistent with the
-validation result, confirming that the regularized model's improved generalization holds on
-completely unseen data. {gap_summary}
+The regularized model adds L2 weight decay (lambda=1e-4) and dropout at rate 0.15. I
+originally tried dropout 0.25 and validation accuracy dropped well below the baseline, which
+put the model in the high-bias region rather than the intended lower-variance position. At
+0.15 the training accuracy ends at {regularized_train_acc:.4f}, lower than the baseline's
+{baseline_train_acc:.4f} as expected since the constraints stop it fitting training noise as
+freely. The train-val gap narrows to {regularized_gap:.4f}, about {gap_pct:.0f}% tighter than
+the baseline's {baseline_gap:.4f}. What I did not expect is the regularized model's final
+validation accuracy ({regularized_val_acc:.4f}) being slightly below the baseline's
+({baseline_val_acc:.4f}). Its best validation result came at epoch {reg_best_epoch}
+({reg_best_val_acc:.4f}), where the train-val gap was only 0.0064, but it drifted back by
+epoch 25. The baseline happened to reach its peak validation accuracy right at the final epoch.
+The gap reduction is real and the variance is clearly lower, but it did not translate into a
+clean accuracy win here. I think 25 epochs is not enough for the regularized model to fully
+converge at the lower learning rate; with more epochs I would expect the gap to close.
 
-Hyperparameter choices were each made for a specific reason. Dropout 0.15 was arrived at
-after observing that dropout 0.25 overcorrected — validation accuracy fell well below the
-baseline, indicating the model had shifted too far toward high bias. Reducing to 0.15 retained
-the variance-reduction benefit without excessive capacity loss. Weight decay 1e-4 is a weak L2
-prior: strong enough to penalise large-norm solutions but small enough not to prevent the
-optimizer reaching a good minimum. SGD with momentum 0.9 was chosen over Adam because
-momentum SGD tends to converge to flatter minima — regions where the loss curvature is low in
-all directions — which corresponds to lower variance and better generalization, as shown by
-Keskar et al. (2017). The baseline learning rate of 0.08 drives loss down quickly over 25
-epochs without divergence; the regularized model uses 0.05 because the gradient noise
-introduced by dropout destabilizes training at higher rates. Batch size 128 balances gradient
-estimate quality against the stochasticity needed for SGD to escape sharp minima.
+On the optimiser, I tried Adam first and switched to SGD with momentum 0.9. Adam normalizes
+each parameter's gradient by a running estimate of its variance, which stabilizes training but
+removes most of the stochasticity from the update signal. That stochasticity in SGD mini-batch
+estimates is itself a form of implicit regularization: gradient noise is proportional to
+learning rate divided by batch size, and it biases the optimiser away from sharp narrow minima
+(where small weight perturbations sharply increase the loss) toward flatter regions that
+generalize better. With LR=0.08 and batch size 128, the baseline's gradient noise scale is
+roughly 6e-4 per update step and the regularized model at LR=0.05 sits at about 4e-4. The
+explicit dropout and weight decay dominate the regularized model's behavior, but SGD's
+gradient noise is present in both and is part of why neither model collapses into a sharp
+minimum despite having enough capacity to memorise the training set.
 """.strip()
 
 
@@ -380,6 +367,10 @@ def main() -> None:
     baseline_train_acc = histories["baseline"].train_accuracy[-1]
     regularized_train_acc = histories["regularized"].train_accuracy[-1]
 
+    reg_val_list = histories["regularized"].val_accuracy
+    reg_best_val_acc = max(reg_val_list)
+    reg_best_epoch = reg_val_list.index(reg_best_val_acc) + 1
+
     print(f"Saved plot to {PLOT_PATH}")
     print(f"Training accuracy   | baseline={baseline_train_acc:.4f}, regularized={regularized_train_acc:.4f}")
     print(f"Validation accuracy | baseline={baseline_val_acc:.4f}, regularized={regularized_val_acc:.4f}")
@@ -391,6 +382,8 @@ def main() -> None:
         regularized_val_acc=regularized_val_acc,
         baseline_test_acc=baseline_test_acc,
         regularized_test_acc=regularized_test_acc,
+        reg_best_val_acc=reg_best_val_acc,
+        reg_best_epoch=reg_best_epoch,
     ))
 
 

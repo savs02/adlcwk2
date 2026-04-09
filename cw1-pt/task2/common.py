@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch import nn
 from torch.utils.data import DataLoader, Dataset, random_split
 
@@ -343,7 +342,7 @@ def make_loaders(
 
 
 def one_hot(labels: torch.Tensor, num_classes: int) -> torch.Tensor:
-    """Create one-hot encoded labels.
+    """Create one-hot encoded labels using basic tensor operations.
 
     Args:
         labels: torch.Tensor, shape [batch_size].
@@ -353,7 +352,9 @@ def one_hot(labels: torch.Tensor, num_classes: int) -> torch.Tensor:
         torch.Tensor, shape [batch_size, num_classes].
     """
 
-    return F.one_hot(labels, num_classes=num_classes).float()
+    out = torch.zeros(labels.size(0), num_classes, device=labels.device)
+    out.scatter_(1, labels.unsqueeze(1), 1.0)
+    return out
 
 
 def apply_mixup(
@@ -429,7 +430,9 @@ def smoothed_cross_entropy(
     if targets.ndim == 1:
         targets = one_hot(targets, logits.size(1))
     smoothed_targets = (1.0 - smoothing) * targets + smoothing / logits.size(1)
-    log_probabilities = torch.log_softmax(logits, dim=1)
+    # log-softmax from primitives: log(exp(x) / sum(exp(x))) = x - log(sum(exp(x)))
+    log_sum_exp = torch.log(torch.exp(logits).sum(dim=1, keepdim=True))
+    log_probabilities = logits - log_sum_exp
     return -(smoothed_targets * log_probabilities).sum(dim=1).mean()
 
 
