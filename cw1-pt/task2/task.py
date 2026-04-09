@@ -261,7 +261,7 @@ acts as the final check, holding the epoch {best_epoch} weights rather than cont
 optimize on a mixed objective that is increasingly detached from clean evaluation.
 
 Label smoothing addresses the output side of the same problem. Standard cross-entropy with
-one-hot targets keeps pushing the correct class logit upward indefinitely - there is no point
+one-hot targets keeps pushing the correct class logit upward indefinitely, there is no point
 at which the gradient vanishes, since the model can always get closer to predicted probability
 1. This creates large logit margins on easy training examples and makes optimization aggressive
 in ways that do not generalize. My implementation uses epsilon={smoothing}: the correct class

@@ -297,16 +297,15 @@ Task 1 technical analysis
 Both models use the same six-layer architecture (hidden widths 1024, 512, 512, 256, 128, 64
 with ReLU activations), so the only experimental differences are the regularization applied to
 the second model and the learning rate, which I had to lower from 0.08 to 0.05 for the
-regularized model because dropout destabilized training at the higher rate. This means the two models differ in their optimization dynamics as well, which matters for the
-implicit regularization discussion below.
+regularized model because dropout destabilized training at the higher rate.
 
 The baseline overfits clearly. Training accuracy climbs across all 25 epochs, reaching
 {baseline_train_acc:.4f}. Validation accuracy keeps up through the first 8 epochs but from
 epoch 9 onward training accuracy is consistently above validation and the gap grows steadily
 to {baseline_gap:.4f} by epoch 25. Looking at the plot, the validation curve flattens and
-oscillates around 0.88-0.89 while training continues upward - that persistent divergence is
+oscillates around 0.88-0.89 while training continues upward, and that persistent divergence is
 the generalization gap. Test accuracy of {baseline_test_acc:.4f} lines up with the validation
-result, which rules out the gap being an artefact of how the validation split landed.
+result, which rules out the gap being an artifact of how the validation split landed.
 
 The regularized model adds L2 weight decay (lambda=1e-4) and dropout at rate 0.15. I
 originally tried dropout 0.25 and validation accuracy dropped well below the baseline, which
@@ -321,19 +320,19 @@ validation accuracy ({regularized_val_acc:.4f}) being slightly below the baselin
 epoch 25. The baseline happened to reach its peak validation accuracy right at the final epoch.
 The gap reduction is real and the variance is clearly lower, but it did not translate into a
 clean accuracy win here. I think 25 epochs is not enough for the regularized model to fully
-converge at the lower learning rate; with more epochs I would expect the gap to close.
+converge at the lower learning rate, and with more epochs I would expect the gap to close.
 
-On the optimiser, I tried Adam first and switched to SGD with momentum 0.9. Adam normalizes
+On the optimizer, I tried Adam first and switched to SGD with momentum 0.9. Adam normalizes
 each parameter's gradient by a running estimate of its variance, which stabilizes training but
 removes most of the stochasticity from the update signal. That stochasticity in SGD mini-batch
-estimates is itself a form of implicit regularization: gradient noise is proportional to
-learning rate divided by batch size, and it biases the optimiser away from sharp narrow minima
+estimates is itself a form of implicit regularization, meaning gradient noise is proportional to
+learning rate divided by batch size, and it biases the optimizer away from sharp narrow minima
 (where small weight perturbations sharply increase the loss) toward flatter regions that
 generalize better. With LR=0.08 and batch size 128, the baseline's gradient noise scale is
 roughly 6e-4 per update step and the regularized model at LR=0.05 sits at about 4e-4. The
 explicit dropout and weight decay dominate the regularized model's behavior, but SGD's
 gradient noise is present in both and is part of why neither model collapses into a sharp
-minimum despite having enough capacity to memorise the training set.
+minimum despite having enough capacity to memorize the training set.
 """.strip()
 
 
